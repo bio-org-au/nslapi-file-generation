@@ -1,0 +1,21 @@
+micronaut:
+  application:
+    name: nslapiSkos
+  server:
+    port: 8095
+    thread-selection: IO
+    netty:
+      worker:
+        threads: 75
+      parent:
+        threads: 75
+      childOptions:
+        autoRead: true
+  http:
+    client:
+      max-content-length: 1010485760
+      read-timeout: 300
+  executors:
+    io:
+      type: fixed
+      nThreads: 75
