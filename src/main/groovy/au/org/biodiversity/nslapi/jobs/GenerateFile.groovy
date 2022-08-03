@@ -38,12 +38,13 @@ class GenerateFile {
             String envLetter = envPropertyName[0]
             SimpleDateFormat sdf = new SimpleDateFormat("Y-MM-dd")
             Date now = new Date()
-            String zipFilePath = skosFileDir + sdf.format(now).toString() + ".zip"
+            String zipFilePath = skosFileDir + 'BDR_name_label_' + sdf.format(now).toString().replace('-', '') + ".zip"
             log.debug("ZIP file name will be: ${zipFilePath}")
             List shards = ['apni', 'algae', 'fungi', 'lichen', 'moss', 'afd']
             // String shard = 'apni'
             shards.each {
                 String graphSchema = envLetter + it
+                String treeVersionId = null
                 log.debug("Building skos output for ${graphSchema}")
                 Date start = new Date()
                 Performance.printTime(start, 1)
@@ -74,6 +75,7 @@ class GenerateFile {
                 graphOutput.add( response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_tree_schema'][0][0])
                 graphOutput.add( response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_schema'][0][0])
                 graphOutput.add( response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_top_concept'][0][0])
+                treeVersionId = response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_schema'][0][0]['_id'].toString().split(':')[1]
 
                 response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_concepts'][0].each {
                     graphOutput.add it
@@ -92,7 +94,7 @@ class GenerateFile {
                         .replace('_type', "@type")
                         .replace('_id', '@id')
                 Performance.printTime(start, 5)
-                new File( skosFileDir + it + '_skos.jsonld').withWriter('utf-8') {
+                new File( skosFileDir + 'BDR_name_label_' + it + '_' + treeVersionId + '.jsonld').withWriter('utf-8') {
                     writer -> writer.writeLine(returnOutput)
                 }
             }
