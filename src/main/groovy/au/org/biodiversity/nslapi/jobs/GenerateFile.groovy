@@ -1,3 +1,19 @@
+/*
+    Copyright 2015 Australian National Botanic Gardens
+
+    This file is part of NSL API project.
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not
+    use this file except in compliance with the License. You may obtain a copy
+    of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+*/
+
 package au.org.biodiversity.nslapi.jobs
 
 import au.org.biodiversity.nslapi.services.ApiAccessService
@@ -35,58 +51,60 @@ class GenerateFile {
     void execute() {
         try {
             String skosFileDir = '/tmp/skos/'
-            String envLetter = envPropertyName[0]
-            SimpleDateFormat sdf = new SimpleDateFormat("Y-MM-dd")
+            String envLetter = envPropertyName?.toList()?.first()
+            log.warn "envLetter: ${envLetter}"
+            SimpleDateFormat sdf = new SimpleDateFormat("YMMdd")
             Date now = new Date()
-            String zipFilePath = skosFileDir + 'BDR_name_label_' + sdf.format(now).toString().replace('-', '') + ".zip"
+            String zipFilePath = skosFileDir + 'BDR_name_label_' + sdf.format(now).toString() + ".zip"
             log.debug("ZIP file name will be: ${zipFilePath}")
             List shards = ['apni', 'algae', 'fungi', 'lichen', 'moss', 'afd']
             // String shard = 'apni'
             shards.each {
                 String graphSchema = envLetter + it
                 String treeVersionId = null
-                log.debug("Building skos output for ${graphSchema}")
+                log.debug(/ *** Building skos output for "${graphSchema}" ***/)
                 Date start = new Date()
                 Performance.printTime(start, 1)
                 HttpRequest request = apiAccessService.buildRequest(graphSchema)
                 HttpResponse<Map> response = httpClient.toBlocking().exchange(request, Map)
                 // stop here is there are errors
                 if (response.body().containsKey('errors')) {
-                    log.debug("\n  ERROR RUNNING JOB\n  ${response.body().errors}")
+                    log.error("ERROR MESSAGE:  ${response.body().errors.extensions.internal.error}")
                     return
                 }
                 Performance.printTime(start, 2)
+                Map resBodyData = response?.body()['data']
                 Map stats = [
-                        "bdr_context": response?.body()?.data[graphSchema + '_bdr_context_v'].size(),
-                        "bdr_sdo": response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_sdo'][0].size(),
-                        'bdr_tree_schema': response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_tree_schema'][0].size(),
-                        "bdr_schema": response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_schema'][0].size(),
-                        "bdr_labels": response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_labels'].size(),
-                        "bdr_top_concept": response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_top_concept'][0].size(),
-                        "bdr_concepts": response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_concepts'][0].size(),
-                        "bdr_alt_labels": response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_alt_labels'][0].size(),
-                        "bdr_unplaced": response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_unplaced'][0].size()
+                        "bdr_context": resBodyData[graphSchema + '_bdr_context_v'].size(),
+                        "bdr_sdo": resBodyData[graphSchema + '_bdr_graph_v']['bdr_sdo']?.first()?.size(),
+                        'bdr_tree_schema': resBodyData[graphSchema + '_bdr_graph_v']['bdr_tree_schema']?.first()?.size(),
+                        "bdr_schema": resBodyData[graphSchema + '_bdr_graph_v']['bdr_schema']?.first()?.size(),
+                        "bdr_labels": resBodyData[graphSchema + '_bdr_graph_v']['bdr_labels'].size(),
+                        "bdr_top_concept": resBodyData[graphSchema + '_bdr_graph_v']['bdr_top_concept']?.first()?.size(),
+                        "bdr_concepts": resBodyData[graphSchema + '_bdr_graph_v']['bdr_concepts']?.first()?.size(),
+                        "bdr_alt_labels": resBodyData[graphSchema + '_bdr_graph_v']['bdr_alt_labels']?.first()?.size(),
+                        "bdr_unplaced": resBodyData[graphSchema + '_bdr_graph_v']['bdr_unplaced']?.first()?.size()
                 ]
                 log.debug(stats.toString())
                 Map interimOutput = [:]
                 List graphOutput = []
 
-                graphOutput.add( response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_sdo'][0][0])
-                graphOutput.add( response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_tree_schema'][0][0])
-                graphOutput.add( response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_schema'][0][0])
-                graphOutput.add( response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_top_concept'][0][0])
-                treeVersionId = response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_schema'][0][0]['_id'].toString().split(':')[1]
+                graphOutput.add( resBodyData[graphSchema + '_bdr_graph_v']['bdr_sdo'][0][0])
+                graphOutput.add( resBodyData[graphSchema + '_bdr_graph_v']['bdr_tree_schema'][0][0])
+                graphOutput.add( resBodyData[graphSchema + '_bdr_graph_v']['bdr_schema'][0][0])
+                graphOutput.add( resBodyData[graphSchema + '_bdr_graph_v']['bdr_top_concept'][0][0])
+                treeVersionId = resBodyData[graphSchema + '_bdr_graph_v']['bdr_schema'][0][0]['_id'].toString().split(':')[1]
 
-                response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_concepts'][0].each {
+                resBodyData[graphSchema + '_bdr_graph_v']['bdr_concepts']?.first()?.each {
                     graphOutput.add it
                 }
-                response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_alt_labels'][0]?.each {
+                resBodyData[graphSchema + '_bdr_graph_v']['bdr_alt_labels']?.first()?.each {
                     graphOutput.add it
                 }
-                response?.body()['data'][graphSchema + '_bdr_graph_v']['bdr_unplaced'][0].each {
+                resBodyData[graphSchema + '_bdr_graph_v']['bdr_unplaced']?.first()?.each {
                     graphOutput.add it
                 }
-                interimOutput << ["@context": response?.body()?.data[graphSchema + '_bdr_context_v'][0]]
+                interimOutput << ["@context": response?.body()?.data[graphSchema + '_bdr_context_v']?.first()]
                 interimOutput << ["@graph": graphOutput]
                 Performance.printTime(start, 3)
                 String returnOutput = new JsonBuilder(interimOutput).toString()
